@@ -1,0 +1,51 @@
+plugins {
+    id 'java'
+}
+
+group = 'com.ffmpeg4j'
+version = '1.0'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testImplementation platform('org.junit:junit-bom:5.10.0')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+}
+
+task nativeCompile(type: Exec) {
+    def buildDir = new File('build')
+    def buildCppDir = new File('build/native')
+    if (!buildDir.exists())
+        buildDir.mkdir()
+    if (!buildCppDir.exists())
+        buildCppDir.mkdirs()
+
+    exec {
+        workingDir buildCppDir
+        def cmakeStr = "cmake -DCMAKE_INSTALL_PREFIX=${file('src/main/native').absolutePath} ${file('src/main/cpp').absolutePath}"
+        println cmakeStr
+        commandLine cmakeStr.split(' ')
+    }
+
+    workingDir buildCppDir
+    commandLine 'make', '-j', '32'
+    commandLine 'make', 'install'
+
+}
+
+task nativeClean(type: Delete) {
+    delete 'build/native', 'src/main/native/lib'
+}
+tasks.clean.dependsOn nativeClean
+
+tasks.withType(JavaExec) {
+    systemProperties['java.library.path'] = 'src/main/native/lib'
+}
+tasks.compileJava.dependsOn nativeCompile
+
+test {
+    systemProperties['java.library.path'] = 'src/main/native/lib'
+    useJUnitPlatform()
+}
